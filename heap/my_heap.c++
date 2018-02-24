@@ -30,11 +30,6 @@ class my_heap {
     const int right(const int& idx) {
         return 2*idx + 2;
     }
-    string spaces(int qty) {
-        string str = "";
-        for(int i = 0; i < qty; ++i) { str += " "; }
-        return str;
-    }
     void heapify(const int& root) {
         int l = left(root);
         int r = right(root);
@@ -115,4 +110,3 @@ int main() {
 
     return 0;
 }
-
