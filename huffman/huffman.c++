@@ -86,13 +86,13 @@ public:
 		build_tree();
 		create_codes("", root);
 	}
-	void print_codes() {
+	void print_codes() const {
 		printf(" char | code\n");
 		for(auto it : code) {
 			printf("  \'%c\' - %s\n", it.first, it.second.c_str());
 		}
 	}
-	string encode(const string& message) {
+	string encode(const string& message) const {
 		string result = "";
 		for(char c : message) {
 			if(code.find(c) != code.end()) {
@@ -101,7 +101,7 @@ public:
 		}
 		return result;
 	}
-	string decode(const string& message) {
+	string decode(const string& message) const {
 		string result = "";
 		int i = 0;
 		while(i < message.size()) {
@@ -127,13 +127,13 @@ vector<int> get_chars_and_freq(const string& message, vector<char>& chars, vecto
 
 
 int main() {
-	vector<char> chars;
-	vector<int>  freq;
 
 	string message;
 	printf("Enter message to encode: ");
 	getline(cin, message);
 
+	vector<char> chars;
+	vector<int>  freq;
 	get_chars_and_freq(message, chars, freq);
 
 	Huffman huff(chars, freq);
