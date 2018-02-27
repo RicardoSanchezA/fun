@@ -61,7 +61,7 @@ class Huffman {
 			root = h.top();
 		}
 	}
-	char code_to_char(const string& str, int& idx) {
+	char code_to_char(const string& str, int& idx) const {
 		char c = -1;
 		node* n = root;
 		while(n) {
@@ -79,6 +79,15 @@ class Huffman {
 		}
 		return c;
 	}
+	void delete_tree(node* n) {
+		if(n->left) {
+			delete_tree(n->left);
+		}
+		if(n->right) {
+			delete_tree(n->right);
+		}
+		delete n;
+	}
 public:
 	Huffman() : root(nullptr), h(), chars(), freq(), code() {}
 	Huffman(vector<char> _chars, vector<int> _freq) : root(nullptr), h(), chars(_chars), freq(_freq), code() {
@@ -92,7 +101,7 @@ public:
 			printf("  \'%c\' - %s\n", it.first, it.second.c_str());
 		}
 	}
-	string encode(const string& message) const {
+	string encode(const string& message) {
 		string result = "";
 		for(char c : message) {
 			if(code.find(c) != code.end()) {
@@ -109,6 +118,9 @@ public:
 			result.push_back(c);
 		}
 		return result;
+	}
+	~Huffman() {
+		delete_tree(root);
 	}
 };
 
