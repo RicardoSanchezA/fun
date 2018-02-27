@@ -3,7 +3,7 @@
 #include <vector> /* vector */
 #include <stdlib.h> /* rand */
 
-#define HEAP_MAX_SIZE 100
+#define HEAP_MAX_SIZE 300
 
 using namespace std;
 
@@ -18,7 +18,7 @@ struct Compare {
 template<typename T = int, typename C = Compare<T> >
 class my_heap {
     C cmp;
-    long size;
+    long _size;
     vector<T> heap;
 
     const int parent(const int& idx) {
@@ -34,10 +34,10 @@ class my_heap {
         int l = left(root);
         int r = right(root);
         int smallest = root;
-        if(l < size && cmp(heap[l], heap[smallest])) {
+        if(l < _size && cmp(heap[l], heap[smallest])) {
             smallest = l;
         }
-        if(r < size && cmp(heap[r], heap[smallest])) {
+        if(r < _size && cmp(heap[r], heap[smallest])) {
             smallest = r;
         }
         if(smallest != root) {
@@ -47,33 +47,33 @@ class my_heap {
     }
 
 public:
-    my_heap() : size(0), heap(vector<T>(HEAP_MAX_SIZE)) {}
+    my_heap() : _size(0), heap(vector<T>(HEAP_MAX_SIZE)) {}
 
     void push(const T& data) {
-        if(size < heap.size() - 1) {
-            heap[size] = data;
-            int i = size;
+        if(_size < heap.size() - 1) {
+            heap[_size] = data;
+            int i = _size;
             int parent_idx = parent(i);
             while(parent_idx >= 0 && heap[i] < heap[parent_idx]) {
                 swap(heap[i], heap[parent_idx]);
                 i = parent_idx;
                 parent_idx = parent(i);
             }
-            ++size;
+            ++_size;
         }
     }
 
     T top() const{
-        int t = -1;
-        if(size > 0)
+        T t;
+        if(_size > 0)
             t = heap[0];
         return t;
     }
 
     void pop() {
-        if(size > 0) {
-            heap[0] = heap[size - 1];
-            --size;
+        if(_size > 0) {
+            heap[0] = heap[_size - 1];
+            --_size;
             heapify(0);
         }
     }
@@ -88,7 +88,10 @@ public:
     }
 
     bool empty() const {
-        return size == 0;
+        return _size == 0;
     }
 
+    int size() const {
+        return _size;
+    }
 };
