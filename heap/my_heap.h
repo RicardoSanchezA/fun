@@ -54,7 +54,7 @@ public:
             heap[_size] = data;
             int i = _size;
             int parent_idx = parent(i);
-            while(parent_idx >= 0 && heap[i] < heap[parent_idx]) {
+            while(parent_idx >= 0 && cmp(heap[i], heap[parent_idx])) {
                 swap(heap[i], heap[parent_idx]);
                 i = parent_idx;
                 parent_idx = parent(i);
