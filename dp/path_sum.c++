@@ -3,9 +3,14 @@
 #include <vector>
 #include <deque>
 #include <climits>
+#include <stdio.h>
 
 /* set PRINT_PATH to 1 to print the path used to get the solution. */
-#define PRINT_PATH 0
+#define PRINT_PATH 1
+
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
 
 using namespace std;
 
@@ -62,8 +67,10 @@ public:
 				_max_idx = i;
 			}
 		}
-		/* build the path followed to achieve the max. sum */
-		build_path(_max_idx, history, path);
+		if(PRINT_PATH) {
+			/* build the path followed to achieve the max. sum */
+			build_path(_max_idx, history, path);
+		}
 
 		return _max;
 	}
@@ -82,9 +89,8 @@ public:
 	static void print_triangle(const vector<vector<int>>& triangle, const deque<int>& path) {
 		for(int i = 0; i < triangle.size(); ++i) {
 			for(int j = 0; j < triangle[i].size(); ++j) {
-				if(j == path[i]) { printf("["); }
-				printf("%d", triangle[i][j]);
-				if(j == path[i]) { printf("]"); }
+				if(j == path[i]) { printf(ANSI_COLOR_GREEN "%02d" ANSI_COLOR_RESET, triangle[i][j]); }
+				else { printf("%02d", triangle[i][j]); }
 				printf(" ");
 			}
 			printf("\n");
