@@ -26,51 +26,55 @@ struct compare_edge {
 class Graph {
     vector<list<edge>> adj_list;
     vector<edge> mst;
+    int num_edges;
 public: 
+	Graph () : adj_list(), mst(), num_edges(0) {}
 	void print_mst() {
-		printf("MST: \n");
-        for(const edge& e : mst) {
-	        printf("(%d)---%d---(%d)\n", e.u, e.weight, e.v);
-        }
+		if(!mst.empty()) {
+			printf("MST: \n");
+	        for(const edge& e : mst) {
+		        printf("(%d)---%d---(%d)\n", e.u, e.weight, e.v);
+	        }
+    	}
 	}
 
     void prims_algo() {
         set<int> s;
         my_heap<edge, compare_edge> cheapest_edge;
-
+        vector<list<edge>> adj_list_copy(adj_list);
         mst = vector<edge>();
 
         int u = 0;
-        s.insert(u);
-        while(!adj_list[u].empty()) {
-            edge e = adj_list[u].front();
-            cheapest_edge.push(e);
-            adj_list[u].pop_front();
-        }
-
-        while(s.size() != adj_list.size()) {
+        s.insert(0);
+        do {
+        	while(!adj_list_copy[u].empty()) {
+                edge e = adj_list_copy[u].front();
+                cheapest_edge.push(e);
+                adj_list_copy[u].pop_front();
+            }
             edge _e = cheapest_edge.top();
             while(!cheapest_edge.empty() && s.count(_e.v)) {
                 cheapest_edge.pop();
                 _e = cheapest_edge.top();
             }
             mst.push_back(_e);
-            s.insert(_e.v);
-
             u = _e.v;
-            while(!adj_list[u].empty()) {
-                edge e = adj_list[u].front();
-                cheapest_edge.push(e);
-                adj_list[u].pop_front();
-            }
-        }
+            s.insert(u);
+        } while (s.size() != adj_list_copy.size());
+    
     }
-    void add_edge(const int& u, const int& v, const int& w) {
+
+    void add_edge(const int& u, const int& v, const int& w, const bool& doubly_linked = true) {
 		while(u >= adj_list.size()) {
 			adj_list.push_back(list<edge>());
 		}
 		edge e(u, v, w);
 		adj_list[u].push_back(e);
+		if(doubly_linked) {
+			--num_edges;
+			add_edge(v, u, w, false);
+		}
+		++num_edges;
 	}
 };
 
@@ -82,16 +86,9 @@ int main() {
     g.add_edge(0,1,1);
     g.add_edge(0,2,4);
 
-    g.add_edge(1,0,1);
     g.add_edge(1,3,2);
 
-    g.add_edge(2,0,4);
     g.add_edge(2,3,3);
-
-    g.add_edge(3,1,2);
-    g.add_edge(3,2,3);
-
-	g.add_edge(4,0,10);
 
     /* Test graph:
         (4)---10---(0)---1---(1)
