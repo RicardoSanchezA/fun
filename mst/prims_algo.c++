@@ -28,15 +28,15 @@ class Graph {
     vector<edge> mst;
     int num_edges;
 public: 
-	Graph () : adj_list(), mst(), num_edges(0) {}
-	void print_mst() {
-		if(!mst.empty()) {
-			printf("MST: \n");
-	        for(const edge& e : mst) {
-		        printf("(%d)---%d---(%d)\n", e.u, e.weight, e.v);
-	        }
-    	}
-	}
+    Graph () : adj_list(), mst(), num_edges(0) {}
+    void print_mst() {
+        if(!mst.empty()) {
+            printf("MST: \n");
+            for(const edge& e : mst) {
+                printf("(%d)---%d---(%d)\n", e.u, e.weight, e.v);
+            }
+        }
+    }
 
     void prims_algo() {
         set<int> s;
@@ -47,7 +47,7 @@ public:
         int u = 0;
         s.insert(0);
         do {
-        	while(!adj_list_copy[u].empty()) {
+            while(!adj_list_copy[u].empty()) {
                 edge e = adj_list_copy[u].front();
                 cheapest_edge.push(e);
                 adj_list_copy[u].pop_front();
@@ -65,23 +65,23 @@ public:
     }
 
     void add_edge(const int& u, const int& v, const int& w, const bool& doubly_linked = true) {
-		while(u >= adj_list.size()) {
-			adj_list.push_back(list<edge>());
-		}
-		edge e(u, v, w);
-		adj_list[u].push_back(e);
-		if(doubly_linked) {
-			--num_edges;
-			add_edge(v, u, w, false);
-		}
-		++num_edges;
-	}
+        while(u >= adj_list.size()) {
+            adj_list.push_back(list<edge>());
+        }
+        edge e(u, v, w);
+        adj_list[u].push_back(e);
+        if(doubly_linked) {
+            --num_edges;
+            add_edge(v, u, w, false);
+        }
+        ++num_edges;
+    }
 };
 
 
 int main() {
 
-	Graph g;
+    Graph g;
     g.add_edge(0,4,10);
     g.add_edge(0,1,1);
     g.add_edge(0,2,4);
