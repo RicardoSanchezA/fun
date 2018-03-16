@@ -5,8 +5,6 @@
 
 #define HEAP_MAX_SIZE 300
 
-using namespace std;
-
 
 template<typename T>
 struct Compare { 
@@ -19,7 +17,7 @@ template<typename T = int, typename C = Compare<T> >
 class my_heap {
     C cmp;
     long _size;
-    vector<T> heap;
+    std::vector<T> heap;
 
     const int parent(const int& idx) {
         return (idx - 1)/2;
@@ -41,13 +39,13 @@ class my_heap {
             smallest = r;
         }
         if(smallest != root) {
-            swap(heap[smallest], heap[root]);
+            std::swap(heap[smallest], heap[root]);
             heapify(smallest);
         }
     }
 
 public:
-    my_heap() : _size(0), heap(vector<T>(HEAP_MAX_SIZE)) {}
+    my_heap() : _size(0), heap(std::vector<T>(HEAP_MAX_SIZE)) {}
 
     void push(const T& data) {
         if(_size < heap.size() - 1) {
@@ -55,7 +53,7 @@ public:
             int i = _size;
             int parent_idx = parent(i);
             while(parent_idx >= 0 && cmp(heap[i], heap[parent_idx])) {
-                swap(heap[i], heap[parent_idx]);
+                std::swap(heap[i], heap[parent_idx]);
                 i = parent_idx;
                 parent_idx = parent(i);
             }
@@ -81,7 +79,7 @@ public:
     void delete_at(int idx) {
         heap[idx] = heap[0];
         while(idx > 0 && cmp(heap[idx], heap[parent(idx)])) {
-            swap(heap[idx], heap[parent(idx)]);
+            std::swap(heap[idx], heap[parent(idx)]);
             --idx;
         }
         pop();
