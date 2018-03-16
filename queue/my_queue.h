@@ -80,9 +80,11 @@ public:
 	}
 
 	void pop() {
-		w_lock();
-		q.pop_back();
-		w_unlock();
+		if(!q.empty()) {
+			w_lock();
+			q.pop_back();
+			w_unlock();
+		}
 	}
 
 	bool empty() const {
