@@ -1,7 +1,5 @@
-#include <iostream> /* printf */
 #include <algorithm> /* swap */
 #include <vector> /* vector */
-#include <stdlib.h> /* rand */
 
 #define HEAP_MAX_SIZE 300
 
