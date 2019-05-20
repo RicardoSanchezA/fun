@@ -21,7 +21,7 @@ main (const int argc, const char** argv)
     ptr2 = a.allocate(2);
     a.construct(ptr2, c);
     a.construct(ptr2 + 1, d);
-    if (*ptr2 == c && *(ptr2+1), d) {
+    if (*ptr2 == c && *(ptr2+1) == d) {
     	std::cout << "equal\n";
     } else {
     	std::cout << "not equal\n";

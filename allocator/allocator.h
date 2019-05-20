@@ -1,3 +1,8 @@
+/*
+ * Simple satic memory allocator, i.e., the user must provide the the capacity
+ * of the allocator at compile time. Thus, only memory from the stack is used.
+ */
+
 #ifndef _MY_ALLOCATOR_H_
 #define _MY_ALLOCATOR_H_
 
@@ -39,8 +44,10 @@ private:
      * type T.
      */
     char mem[N * (sizeof(T) + sentinels_size)];
-    int64_t bytes_allocated; // Total amounts of bytes allocated
-    int64_t free_bytes; // Total amount of bytes left in 'mem'
+    int64_t bytes_allocated; // Total number of bytes allocated for 'mem'
+    int64_t block_counter; // Number of ongoing memory allocations
+    int64_t used_bytes; // Number of bytes that are currently in use
+    int64_t free_bytes; // Number of unused bytes left in 'mem'
     /* TODO: use a heap to keep track of the largest free block */
     int64_t largest_free_block; // Largest contiguous block in 'mem'
 
@@ -60,6 +67,7 @@ private:
 template<typename T, int64_t N>
 allocator<T,N>::allocator() :
     bytes_allocated(N * (sizeof(T) + sentinels_size)),
+    block_counter(1),
     free_bytes(bytes_allocated - sentinels_size),
     largest_free_block(free_bytes)
 {
@@ -94,8 +102,8 @@ allocator<T,N>::valid()
         printf("[0x%p]\n", ptr);
         ptr = shift_pointer(ptr, sentinel_size);
     }
-    printf("\n");
-    return is_valid;
+    return is_valid && bytes_allocated >= free_bytes +
+                                          block_counter * sentinels_size;
 }
 
 /*
@@ -116,24 +124,28 @@ allocator<T,N>::allocate(int64_t M)
 
     while (within_boundaries(ptr) && !result) {
         int64_t* l_ptr = reinterpret_cast<int64_t*>(ptr);
-        int64_t available_bytes = *l_ptr;
-        if (available_bytes < bytes_needed) {
-            ptr = shift_pointer(ptr, abs(available_bytes) + sentinels_size);
+        int64_t bytes_in_block = *l_ptr;
+        if (bytes_in_block < bytes_needed) {
+            ptr = shift_pointer(ptr, abs(bytes_in_block) + sentinels_size);
         } else {
-            int64_t extra_bytes = available_bytes - bytes_needed;
+            int64_t extra_bytes = bytes_in_block - bytes_needed;
             /* Need to account for sentinels used for the extra space block */
             extra_bytes -= sentinels_size;
             result = reinterpret_cast<T*>(shift_pointer(ptr, sentinel_size));
             
             /* Use the whole block if there's not enough extra space */
             if (extra_bytes < sizeof(T)) {
-                write_sentinel(ptr, -available_bytes);
-                free_bytes -= available_bytes;
+                write_sentinel(ptr, -bytes_in_block);
+                free_bytes -= bytes_in_block;
             } else {
+                /* Set sentinel for newly allocated space */
                 write_sentinel(ptr, -bytes_needed);
                 ptr = shift_pointer(ptr, bytes_needed + sentinels_size);
-                write_sentinel(ptr, extra_bytes);
                 free_bytes -= bytes_needed;
+                ++block_counter;
+                /* Set sentinel for extra space that's still unused */
+                write_sentinel(ptr, extra_bytes);
+                free_bytes -= sentinels_size;
             }
         }
     }
@@ -176,6 +188,7 @@ allocator<T,N>::deallocate(T* p)
         return;
     }
     block_size = abs(block_size);
+    free_bytes += block_size;
 
     /* Coalesce with the previous block, if possible */
     previous_ptr = shift_pointer(ptr, -sentinel_size);
@@ -183,6 +196,8 @@ allocator<T,N>::deallocate(T* p)
     if (valid_block(previous_ptr, true) && prev_blk_size > 0) {
         ptr = shift_pointer(ptr, -(prev_blk_size + sentinels_size));
         block_size += prev_blk_size + sentinels_size;
+        free_bytes += sentinels_size;
+        --block_counter;
     }
 
     /* Coalesce with the next block, if possible */
@@ -190,11 +205,12 @@ allocator<T,N>::deallocate(T* p)
     next_blk_size = *reinterpret_cast<int64_t*>(next_ptr);
     if (valid_block(next_ptr) && next_blk_size > 0) {
         block_size += next_blk_size + sentinels_size;
+        free_bytes += sentinels_size;
+        --block_counter;
     }
 
     /* Write sentinels for the newly freed memory */
     write_sentinel(ptr, block_size);
-    free_bytes += block_size;
     assert(valid());
 }
 
