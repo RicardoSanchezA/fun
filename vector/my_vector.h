@@ -30,8 +30,8 @@ public:
 private:
     void increase_capacity(); 
 private:
-    uint64_t _capacity;
-    uint64_t _size;
+    unsigned _capacity;
+    unsigned _size;
     T* _array;
     T* _begin;
     T* _end;
@@ -132,7 +132,7 @@ template<typename T>
 void
 my_vector<T>::clear()
 {
-    memset(_array, 0, _capacity);
+    memset(_array, 0, _capacity * sizeof(T));
     _size = 0;
     _begin = _end = _array;
 }
@@ -149,6 +149,20 @@ my_vector<T>::print() const
     std::cout << "\n";
 }
 
+template<typename T>
+unsigned
+my_vector<T>::size() const
+{
+    return _size;
+}
+
+template<typename T>
+bool
+my_vector<T>::empty() const
+{
+    return _size == 0;
+}
+
 /*
  **************************
  **** Helper functions ****
@@ -158,7 +172,7 @@ template<typename T>
 void
 my_vector<T>::increase_capacity()
 {
-    uint64_t new_capacity = _capacity << 1;
+    unsigned new_capacity = _capacity << 1;
     /* Allocate new array, copy data, and delete old one */
     T* new_array = new T[new_capacity];
     memcpy(new_array, _array, _capacity * sizeof(T));
