@@ -1,37 +1,40 @@
 #include <iostream>
+#include <vector>
 #include "allocator.h"
+
+typedef struct my_struct_s {
+    int datum;
+} my_struct_t;
 
 int
 main (const int argc, const char** argv)
 {
-    allocator<int, 5> a;
-    int b, c, d;
-    b = 5; c = 10; d = 15;
-    int *ptr1, *ptr2;
+    // Test allocator with 99-bytes of capacity
+    allocator<99> a(true);
 
-    ptr1 = a.allocate(1);
-    a.construct(ptr1, b);
-    if (*ptr1 == b) {
-    	std::cout << "equal\n";
-    } else {
-    	std::cout << "not equal\n";
+    std::vector<my_struct_t *> v;
+    std::vector<int> nums;
+    my_struct_t *ptr = NULL;
+    int i = 0;
+
+    while ((ptr = reinterpret_cast<my_struct_t *>(a.allocate(sizeof(my_struct_t))))) {
+        ptr->datum = ++i;
+        v.push_back(ptr);
+        nums.push_back(i);
     }
 
-
-    ptr2 = a.allocate(2);
-    a.construct(ptr2, c);
-    a.construct(ptr2 + 1, d);
-    if (*ptr2 == c && *(ptr2+1) == d) {
-    	std::cout << "equal\n";
-    } else {
-    	std::cout << "not equal\n";
+    auto nums_it = nums.begin();
+    for (auto it = v.begin(); it != v.end(); ++it, ++nums_it) {
+        if (*nums_it != (*it)->datum) {
+            break;
+        }
+        a.deallocate(*it);
     }
-
-    a.destroy(ptr1);
-    a.deallocate(ptr1);
-
-    a.destroy(ptr2);
-    a.deallocate(ptr2);
+    if (nums_it != nums.end()) {
+        std::cout << "Something went wrong...\n";
+    } else {
+        std::cout << "Test passed.\n";
+    }
 
     return 0;
 }

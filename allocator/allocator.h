@@ -1,6 +1,10 @@
 /*
- * Simple satic memory allocator, i.e., the user must provide the the capacity
- * of the allocator at compile time. Thus, only memory from the stack is used.
+ * Simple satic memory allocator. The user must provide the the capacity
+ * of the allocator at compile time. Thus, only memory from the stack is
+ * used, which is useful for projects where dynamic memory use is
+ * disallowed or not ideal.
+ *
+ * Author: Ricardo Sanchez Aguilera
  */
 
 #ifndef _MY_ALLOCATOR_H_
@@ -12,10 +16,12 @@
 #include <stdexcept> // invalid_argument
 #include <cstddef> // ptrdiff_t, size_t
 
+#define EXTRA_SPACE_THRESHOLD 1
+
 static const int64_t sentinel_size = sizeof(int64_t);
 static const int64_t sentinels_size = sentinel_size << 1;
 
-template <typename T, int64_t N>
+template <int64_t N>
 class allocator {
 public:
     friend bool operator==(const allocator&, const allocator&) {
@@ -26,15 +32,15 @@ public:
     }
     /* Constructors & Destructors */
     allocator();
+    allocator(bool _verbose);
     allocator(const allocator&) = default;
     ~allocator() = default;
     allocator &operator=(const allocator&) = default;
     /* Public functions */
-    T* allocate(int64_t size);
-    void construct(T* ptr, const T& value);
-    void deallocate(T* ptr);
-    void destroy(T* ptr);
-    bool valid();
+    void* allocate(int64_t size);
+    template<typename T> void construct(T* ptr, const T& value);
+    void deallocate(void* ptr);
+    template<typename T> void destroy(T* ptr);
 
 private:
     /* Data Members */
@@ -43,19 +49,20 @@ private:
      * memory to its user. It holds enough memory to allocate N instances of
      * type T.
      */
-    char mem[N * (sizeof(T) + sentinels_size)];
-    int64_t bytes_allocated; // Total number of bytes allocated for 'mem'
-    int64_t block_counter; // Number of ongoing memory allocations
-    int64_t used_bytes; // Number of bytes that are currently in use
-    int64_t free_bytes; // Number of unused bytes left in 'mem'
+    char mem[N];
+    int64_t bytes_allocated; // Total number of bytes used by the allocator.
+    int64_t blocks_count; // Number of blocks that 'mem' has been divided into.
+    int64_t used_bytes; // Number of bytes that are currently in use.
+    int64_t free_bytes; // Number of unused bytes left.
+    bool verbose;
     /* TODO: use a heap to keep track of the largest free block */
-    int64_t largest_free_block; // Largest contiguous block in 'mem'
 
     /* Helper functions */
     void write_sentinel(void* ptr, int64_t value);
     void* shift_pointer(void* ptr, int64_t bytes) const;
     bool within_boundaries(void* ptr) const;
     bool valid_block(void* ptr, bool inverse = false) const;
+    bool valid();
 };
 
 /*
@@ -64,12 +71,25 @@ private:
  *************************
  */
 
-template<typename T, int64_t N>
-allocator<T,N>::allocator() :
-    bytes_allocated(N * (sizeof(T) + sentinels_size)),
-    block_counter(1),
+template<int64_t N>
+allocator<N>::allocator() :
+    bytes_allocated(N),
+    blocks_count(1),
     free_bytes(bytes_allocated - sentinels_size),
-    largest_free_block(free_bytes)
+    verbose(false)
+{
+    write_sentinel(mem, free_bytes);
+    if(!valid()) {
+        throw std::bad_alloc();
+    }
+}
+
+template<int64_t N>
+allocator<N>::allocator(bool _verbose) :
+    bytes_allocated(N),
+    blocks_count(1),
+    free_bytes(bytes_allocated - sentinels_size),
+    verbose(_verbose)
 {
     write_sentinel(mem, free_bytes);
     if(!valid()) {
@@ -83,44 +103,47 @@ allocator<T,N>::allocator() :
  **************************
  */
 
-template<typename T, int64_t N>
+template<int64_t N>
 bool
-allocator<T,N>::valid()
+allocator<N>::valid()
 {
     bool is_valid = true;
     void* ptr = reinterpret_cast<void*>(&mem[0]);
-    printf("Verifying that the memory is still valid.\n");
+    if (verbose) printf("Verifying that the memory is valid.\n");
     while (within_boundaries(ptr)) {
         int64_t block_size = *reinterpret_cast<int64_t*>(ptr);
-        printf("  [0x%p]--(%lld-bytes)--", ptr, block_size);
+        if (verbose) printf("  [0x%p]--(%lld-bytes)--", ptr, block_size);
         ptr = shift_pointer(ptr, abs(block_size) + sentinel_size);
         if (block_size != *reinterpret_cast<int64_t*>(ptr)) {
-            printf("Broken sentinel\n");
+            if (verbose) printf("Broken sentinel\n");
             is_valid = false;
             break;
         }
-        printf("[0x%p]\n", ptr);
+        if (verbose) printf("[0x%p]\n", ptr);
         ptr = shift_pointer(ptr, sentinel_size);
     }
     return is_valid && bytes_allocated >= free_bytes +
-                                          block_counter * sentinels_size;
+                                          blocks_count * sentinels_size;
 }
 
 /*
- * Allocates a contiguous block of memory that has the capacity to store M
- * instances of type T and returns the memory address where that block starts.
+ * Allocates a contiguous block of memory of at least M-bytes. A pointer to the
+ * beginning of the block of memory is returned. If there is not enough memory,
+ * then a null pointer will be returned.
  */
-template<typename T, int64_t N>
-T*
-allocator<T,N>::allocate(int64_t M)
+template<int64_t N>
+void*
+allocator<N>::allocate(int64_t M)
 {
-    int64_t bytes_needed = M * sizeof(T);
-    void* ptr = &mem[0];
-    T* result = NULL;
+    int64_t bytes_needed = M;
+    void* ptr = reinterpret_cast<void*>(&mem[0]);
+    void* result = NULL;
     
     if (bytes_needed > free_bytes) {
-        throw std::bad_alloc();
+        if (verbose) printf("Not enough space for %lld bytes.\n", M);
+        return NULL;
     }
+    if (verbose) printf("Allocating %lld bytes.\n", M);
 
     while (within_boundaries(ptr) && !result) {
         int64_t* l_ptr = reinterpret_cast<int64_t*>(ptr);
@@ -131,10 +154,10 @@ allocator<T,N>::allocate(int64_t M)
             int64_t extra_bytes = bytes_in_block - bytes_needed;
             /* Need to account for sentinels used for the extra space block */
             extra_bytes -= sentinels_size;
-            result = reinterpret_cast<T*>(shift_pointer(ptr, sentinel_size));
+            result = shift_pointer(ptr, sentinel_size);
             
             /* Use the whole block if there's not enough extra space */
-            if (extra_bytes < sizeof(T)) {
+            if (extra_bytes < EXTRA_SPACE_THRESHOLD) {
                 write_sentinel(ptr, -bytes_in_block);
                 free_bytes -= bytes_in_block;
             } else {
@@ -142,7 +165,7 @@ allocator<T,N>::allocate(int64_t M)
                 write_sentinel(ptr, -bytes_needed);
                 ptr = shift_pointer(ptr, bytes_needed + sentinels_size);
                 free_bytes -= bytes_needed;
-                ++block_counter;
+                ++blocks_count;
                 /* Set sentinel for extra space that's still unused */
                 write_sentinel(ptr, extra_bytes);
                 free_bytes -= sentinels_size;
@@ -154,40 +177,47 @@ allocator<T,N>::allocate(int64_t M)
     return result;
 }
 
-template<typename T, int64_t N>
+template<int64_t N>
+template<typename T>
 void
-allocator<T,N>::construct(T* ptr,
-                          const T& value)
+allocator<N>::
+construct(T* ptr,
+          const T& value)
 {
-    new (ptr) T(value);
+    T* t_ptr = reinterpret_cast<T*>(ptr);
+    new (t_ptr) T(value);
     assert(valid());
 }
 
 /*
- * Deallocates the block of memory that corresponds to the pointer that was
- * provided. The pointer provided must point to the same address that was
- * returned when the user called allocate().
+ * Releases the memory used by the block that starts at the given pointer.
+ * The pointer provided must point to the same address that was returned by
+ * allocate().
  */
-template<typename T, int64_t N>
+template<int64_t N>
 void
-allocator<T,N>::deallocate(T* p)
+allocator<N>::deallocate(void* p)
 {
     void *ptr, *previous_ptr, *next_ptr;
     int64_t block_size, prev_blk_size, next_blk_size;
 
-    ptr = reinterpret_cast<void*>(p);
+    ptr = p;
     ptr = shift_pointer(ptr, -sentinel_size);
     
     if (!valid_block(ptr)) {
+        if (verbose) printf("Tried to deallocate an invalid address.\n");
         throw std::invalid_argument("Tried to deallocate invalid address.");
         return;
     }
     block_size = *reinterpret_cast<int64_t*>(ptr);
     if (block_size > 0) {
         /* Memory is already marked as deallocated */
+        if (verbose) printf("Tried to deallocate an address that is already "
+                            "marked as deallocated.\n");
         return;
     }
     block_size = abs(block_size);
+    if (verbose) printf("Deallocating %lld bytes.\n", block_size);
     free_bytes += block_size;
 
     /* Coalesce with the previous block, if possible */
@@ -197,7 +227,7 @@ allocator<T,N>::deallocate(T* p)
         ptr = shift_pointer(ptr, -(prev_blk_size + sentinels_size));
         block_size += prev_blk_size + sentinels_size;
         free_bytes += sentinels_size;
-        --block_counter;
+        --blocks_count;
     }
 
     /* Coalesce with the next block, if possible */
@@ -206,7 +236,7 @@ allocator<T,N>::deallocate(T* p)
     if (valid_block(next_ptr) && next_blk_size > 0) {
         block_size += next_blk_size + sentinels_size;
         free_bytes += sentinels_size;
-        --block_counter;
+        --blocks_count;
     }
 
     /* Write sentinels for the newly freed memory */
@@ -214,9 +244,10 @@ allocator<T,N>::deallocate(T* p)
     assert(valid());
 }
 
-template<typename T, int64_t N>
+template<int64_t N>
+template<typename T>
 void
-allocator<T,N>::destroy(T* ptr)
+allocator<N>::destroy(T* ptr)
 {
     ptr->~T();
     assert(valid());
@@ -228,9 +259,9 @@ allocator<T,N>::destroy(T* ptr)
  **************************
  */
 
-template<typename T, int64_t N>
+template<int64_t N>
 void
-allocator<T,N>::write_sentinel(void* ptr,
+allocator<N>::write_sentinel(void* ptr,
                                int64_t size)
 {
     int64_t* l_ptr = reinterpret_cast<int64_t*>(ptr);
@@ -240,9 +271,9 @@ allocator<T,N>::write_sentinel(void* ptr,
     *l_ptr = size;
 }
 
-template<typename T, int64_t N>
+template<int64_t N>
 void*
-allocator<T,N>::shift_pointer(void* ptr,
+allocator<N>::shift_pointer(void* ptr,
                               int64_t shift) const
 {
     char *char_ptr = (char*) ptr;
@@ -251,17 +282,17 @@ allocator<T,N>::shift_pointer(void* ptr,
     return ptr;
 }
 
-template<typename T, int64_t N>
+template<int64_t N>
 bool
-allocator<T,N>::within_boundaries(void *ptr) const
+allocator<N>::within_boundaries(void *ptr) const
 {
     return ptr && ptr >= &mem[0] &&
            ptr <= &mem[bytes_allocated - 1];
 }
 
-template<typename T, int64_t N>
+template<int64_t N>
 bool
-allocator<T,N>::valid_block(void* ptr, bool inverse) const
+allocator<N>::valid_block(void* ptr, bool inverse) const
 {
     if (within_boundaries(ptr)) {
         int64_t blk_size = abs(*reinterpret_cast<int64_t*>(ptr));
